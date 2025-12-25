@@ -4,74 +4,75 @@ import google.generativeai as genai
 import io
 import json
 
-# --- CONFIGURAÇÃO DE SEGURANÇA (NUVEM) ---
+# --- CONFIGURAÇÃO ---
 try:
-    # Tenta pegar a chave dos segredos do Streamlit
     api_key = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=api_key)
-except Exception:
-    st.error("⚠️ ERRO: API Key não configurada! Vá nas configurações do Streamlit Cloud > Secrets.")
+except:
+    st.error("⚠️ Configure a API Key nos 'Secrets' do Streamlit!")
     st.stop()
 
-# Configura o modelo
+# MODELO 2025 (Oficial e Estável)
 model = genai.GenerativeModel('gemini-2.5-flash')
 
-# --- CONFIGURAÇÃO VISUAL ---
-st.set_page_config(page_title="MotoClub Mobile", page_icon="🏍️", layout="centered")
+st.set_page_config(page_title="MotoClub Pro", page_icon="🏍️", layout="centered")
 
-# Estilo CSS para parecer App Nativo Escuro
+# Visual Dark Mode
 st.markdown("""
     <style>
-    .stApp { background-color: #121212; color: #e0e0e0; }
-    .stButton>button { 
-        background-color: #D2B48C; color: #000; 
-        font-weight: bold; border-radius: 12px; 
-        height: 55px; width: 100%; font-size: 18px; border: none;
-    }
-    div[data-testid="stFileUploader"] { 
-        background-color: #1e1e1e; border: 1px solid #333; border-radius: 10px; padding: 15px;
-    }
-    h1 { color: #D2B48C !important; text-align: center; }
+    .stApp { background-color: #0e0e0e; color: #f0f0f0; }
+    .stButton>button { background-color: #D2B48C; color: #000; font-weight: bold; border-radius: 8px; height: 50px; width: 100%; border:none; }
+    div[data-testid="stFileUploader"] { background-color: #1a1a1a; border: 1px solid #333; padding: 20px; border-radius: 12px; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🏍️ MotoClub Editor")
+st.title("🏍️ MotoClub Editor 2.5")
 
-# --- INTERFACE ---
-uploaded_file = st.file_uploader("Toque para enviar foto", type=['jpg', 'png', 'jpeg'])
-prompt = st.text_area("Instruções:", "Estilo Café Racer: nitidez alta, contraste comercial e cores vibrantes.")
+uploaded_file = st.file_uploader("Enviar Foto", type=['jpg', 'png', 'jpeg'])
+prompt = st.text_area("Instruções:", "Estilo Café Racer: nitidez comercial, contraste marcante e cores vibrantes.")
 
-if uploaded_file and st.button("⚡ PROCESSAR FOTO"):
-    with st.spinner('Processando na nuvem...'):
+if uploaded_file and st.button("⚡ PROCESSAR AGORA"):
+    with st.spinner('A IA está analisando os pixels...'):
         try:
-            # 1. Carregar
             image = Image.open(uploaded_file).convert('RGB')
-            
-            # 2. Enviar para IA
             buf = io.BytesIO()
             image.save(buf, format='JPEG')
             
-            response = model.generate_content([
-                {'mime_type': 'image/jpeg', 'data': buf.getvalue()},
-                f"Atue como editor. Pedido: {prompt}. Retorne JSON para Pillow: brightness, contrast, saturation, sharpness (float, 1.0 neutro)."
-            ])
+            # --- O PULO DO GATO: FORÇAR JSON ---
+            response = model.generate_content(
+                [
+                    {'mime_type': 'image/jpeg', 'data': buf.getvalue()},
+                    f"Atue como editor de imagem. Pedido: {prompt}. Retorne JSON com chaves: brightness, contrast, saturation, sharpness (float, 1.0 é neutro)."
+                ],
+                generation_config={"response_mime_type": "application/json"}
+            )
             
-            # 3. Aplicar Filtros
-            filtros = json.loads(response.text.replace('```json','').replace('```','').strip())
+            # Debug: Se a IA falhar, mostraremos o texto real
+            try:
+                filtros = json.loads(response.text)
+            except ValueError:
+                st.error("A IA respondeu texto em vez de código. Veja abaixo:")
+                st.write(response.text)
+                st.stop()
             
+            # Aplicação
             edit = image
             if 'brightness' in filtros: edit = ImageEnhance.Brightness(edit).enhance(filtros['brightness'])
             if 'contrast' in filtros: edit = ImageEnhance.Contrast(edit).enhance(filtros['contrast'])
             if 'saturation' in filtros: edit = ImageEnhance.Color(edit).enhance(filtros['saturation'])
             if 'sharpness' in filtros: edit = ImageEnhance.Sharpness(edit).enhance(filtros['sharpness'])
             
-            # 4. Resultado
-            st.image(edit, caption='Resultado', use_container_width=True)
+            # Antes/Depois
+            col1, col2 = st.columns(2)
+            with col1: st.image(image, caption='Original', use_container_width=True)
+            with col2: st.image(edit, caption='Editada IA', use_container_width=True)
+            
+            st.success(f"Ajustes usados: {filtros}")
             
             # Download
             buf_out = io.BytesIO()
             edit.save(buf_out, format="JPEG", quality=95)
-            st.download_button("💾 BAIXAR AGORA", data=buf_out.getvalue(), file_name="editada_motoclub.jpg", mime="image/jpeg")
+            st.download_button("💾 BAIXAR FOTO", data=buf_out.getvalue(), file_name="motoclub_final.jpg", mime="image/jpeg")
             
         except Exception as e:
-            st.error(f"Erro: {e}")
+            st.error(f"Erro Técnico: {e}")
