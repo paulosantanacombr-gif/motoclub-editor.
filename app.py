@@ -14,7 +14,7 @@ except Exception:
     st.stop()
 
 # Configura o modelo
-model = genai.GenerativeModel('gemini-1.5-flash')
+model = genai.GenerativeModel('gemini-2.5-flash')
 
 # --- CONFIGURAÇÃO VISUAL ---
 st.set_page_config(page_title="MotoClub Mobile", page_icon="🏍️", layout="centered")
